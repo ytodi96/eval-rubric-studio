@@ -1,0 +1,10 @@
+format: evalstudio/v1
+name: prompt v1
+config:
+  adapter: prompt
+  # A small, cheap model as the system under test keeps the demo inexpensive and leaves room
+  # for the improve loop to show gains. The judge uses a stronger model (see .env).
+  provider: openai
+  model: gpt-6-luna
+  max_tokens: 2000
+  system_prompt_file: system_prompt_v1.md

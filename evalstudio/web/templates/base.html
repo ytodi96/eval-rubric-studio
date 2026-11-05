@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Eval & Rubric Studio{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="top">
+    <a href="/" class="brand">Eval &amp; Rubric Studio</a>
+    {% if project %}<span class="crumb">/ <a href="/p/{{ project.slug }}">{{ project.title }}</a></span>{% endif %}
+  </header>
+  <main>
+    {% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
+    {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <script>
+    // Long AI calls: show that something is happening and stop double-submits.
+    document.querySelectorAll("form[data-busy]").forEach(f => f.addEventListener("submit", () => {
+      f.querySelectorAll("button").forEach(b => { b.disabled = true; });
+      const note = f.querySelector(".busy"); if (note) note.hidden = false;
+    }));
+  </script>
+</body>
+</html>

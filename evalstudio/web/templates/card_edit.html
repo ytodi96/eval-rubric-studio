@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Edit card · {{ project.title }}{% endblock %}
+{% block content %}
+<h1>Edit the use-case card</h1>
+<p class="lead">Lists are one item per line. Saving updates the draft; an approved card is never changed (a new draft version is made instead).</p>
+<form method="post" class="stack">
+  <label>Title <input name="title" value="{{ f.title }}" required></label>
+  <label>Goal <textarea name="goal" rows="2" required>{{ f.goal }}</textarea></label>
+  <label>Users <textarea name="users" rows="2" required>{{ f.users }}</textarea></label>
+  <label>Input types <textarea name="input_types" rows="3">{{ f.input_types }}</textarea></label>
+  <label>Output format <textarea name="output_format" rows="3" required>{{ f.output_format }}</textarea></label>
+  <label>Quality dimensions <span class="muted">(one per line: key | weight 1-3 | what good looks like here)</span>
+    <textarea name="dimensions" rows="9" class="mono">{{ f.dimensions }}</textarea></label>
+  <details><summary>Dimension library</summary>
+    <dl class="grid">{% for k, d in library.items() %}<dt><code>{{ k }}</code></dt><dd>{{ d }}</dd>{% endfor %}</dl>
+    <p class="muted">Any other key counts as a custom dimension.</p></details>
+  <label>Test categories <span class="muted">(rows of the coverage matrix)</span>
+    <textarea name="categories" rows="6">{{ f.categories }}</textarea></label>
+  <label>Known failure modes <textarea name="failure_modes" rows="6">{{ f.failure_modes }}</textarea></label>
+  <div class="cols">
+    <label>Must <textarea name="must" rows="6">{{ f.must }}</textarea></label>
+    <label>Must not <textarea name="must_not" rows="6">{{ f.must_not }}</textarea></label>
+  </div>
+  <label>Out of scope <textarea name="out_of_scope" rows="3">{{ f.out_of_scope }}</textarea></label>
+  <label>Notes and assumptions <textarea name="notes" rows="3">{{ f.notes }}</textarea></label>
+  <div class="row"><button>Save</button> <a href="/p/{{ project.slug }}#card">Cancel</a></div>
+</form>
+{% endblock %}

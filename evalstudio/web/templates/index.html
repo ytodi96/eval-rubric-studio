@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Projects</h1>
+{% if projects %}
+<ul class="cards">
+  {% for p in projects %}
+  <li><a href="/p/{{ p.slug }}"><strong>{{ p.title }}</strong><span class="muted">{{ p.slug }}</span></a>
+    {% if p.description %}<p>{{ p.description }}</p>{% endif %}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No projects yet. Start one below, or load the demo in a terminal:</p>
+<pre>evalstudio import examples/support-email</pre>
+{% endif %}
+
+<h2>New project</h2>
+<form method="post" action="/new" class="stack narrow">
+  <label>Short name <span class="muted">(lowercase, dashes; e.g. trip-planner)</span>
+    <input name="slug" required pattern="[a-z0-9][a-z0-9_-]*"></label>
+  <label>Title <input name="title"></label>
+  <label>Description <input name="description"></label>
+  <button>Create and start intake</button>
+</form>
+{% endblock %}

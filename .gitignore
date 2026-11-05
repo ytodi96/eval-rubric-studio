@@ -1,0 +1,31 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Your projects, runs and grades (DATA_DIR). Only examples/ is published.
+data/
+
+# Raw business data must never be committed
+Chats/
+_raw/
+*.xlsx
+*.xls
+*.zip
+*.vcf
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

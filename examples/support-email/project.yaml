@@ -1,0 +1,6 @@
+format: evalstudio/v1
+slug: support-email
+title: Support email replies (Brightside Coffee demo)
+description: >-
+  Self-contained demo. An assistant drafts replies to customer support emails for a fictional
+  online coffee roaster. Runs with only an OpenAI (or Anthropic) API key.

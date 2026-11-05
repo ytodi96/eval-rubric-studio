@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Intake · {{ project.title }}{% endblock %}
+{% macro carry(m) %}
+  <input type="hidden" name="brief" value="{{ m.brief }}">
+  <input type="hidden" name="system_prompt" value="{{ m.system_prompt }}">
+  <input type="hidden" name="samples" value="{{ m.samples }}">
+  <input type="hidden" name="docs" value="{{ m.docs }}">
+  <input type="hidden" name="existing_cases" value="{{ m.existing_cases }}">
+{% endmacro %}
+{% block content %}
+<h1>Intake</h1>
+
+{% if step == "materials" %}
+<p class="lead">Describe the use case. The Studio will ask a few questions, then draft the use-case card.</p>
+<form method="post" action="/p/{{ project.slug }}/intake/questions" class="stack" data-busy>
+  <label>Brief <span class="muted">(required: what the AI does, for whom, what good looks like)</span>
+    <textarea name="brief" rows="10" required>{{ materials.brief if materials }}</textarea></label>
+  <details {% if materials and (materials.system_prompt or materials.samples or materials.docs or materials.existing_cases) %}open{% endif %}>
+    <summary>Optional: system prompt, samples, docs, existing test cases</summary>
+    <label>The target's system prompt <textarea name="system_prompt" rows="6">{{ materials.system_prompt if materials }}</textarea></label>
+    <label>Sample inputs and outputs <textarea name="samples" rows="6">{{ materials.samples if materials }}</textarea></label>
+    <label>Docs or knowledge base <textarea name="docs" rows="6">{{ materials.docs if materials }}</textarea></label>
+    <label>Existing test cases <textarea name="existing_cases" rows="6">{{ materials.existing_cases if materials }}</textarea></label>
+  </details>
+  <button>Ask me questions</button>
+  <p class="busy muted" hidden>Reading the materials… this takes about 10–30 seconds.</p>
+</form>
+
+{% elif step == "questions" %}
+<h2>My understanding</h2>
+<p>{{ qs.understanding }}</p>
+<form method="post" action="/p/{{ project.slug }}/intake/card" class="stack" data-busy>
+  {{ carry(materials) }}
+  <input type="hidden" name="n_questions" value="{{ qs.questions | length }}">
+  {% for q in qs.questions %}
+  <fieldset>
+    <legend>{{ loop.index }}. {{ q.question }}</legend>
+    <p class="muted">Why it matters: {{ q.why }}</p>
+    <input type="hidden" name="question_{{ loop.index0 }}" value="{{ q.question }}">
+    {% set i = loop.index0 %}
+    {% for o in q.options %}
+    <label class="inline"><input type="radio" name="choice_{{ i }}" value="{{ o }}"> {{ o }}</label>
+    {% endfor %}
+    <label>{% if q.options %}Or / and in your own words{% else %}Your answer{% endif %}
+      <textarea name="answer_{{ i }}" rows="2"></textarea></label>
+  </fieldset>
+  {% else %}
+  <p>No questions: the materials were clear enough.</p>
+  {% endfor %}
+  <p class="muted">Skip any question to let the Studio assume; its assumptions go in the card's notes.</p>
+  <button>Write the use-case card</button>
+  <p class="busy muted" hidden>Writing the card… this takes about 30–60 seconds.</p>
+</form>
+{% endif %}
+{% endblock %}

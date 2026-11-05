@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}{{ project.title }} · Eval & Rubric Studio{% endblock %}
+{% macro badge(kind) %}{% if versions[kind] %}<span class="badge {{ versions[kind].status }}">v{{ versions[kind].version }} · {{ versions[kind].status }}</span>{% endif %}{% endmacro %}
+{% macro approve(kind) %}{% if versions[kind] and versions[kind].status == "draft" %}
+<form method="post" action="/p/{{ project.slug }}/approve/{{ kind }}" class="inline"><button class="primary">Approve v{{ versions[kind].version }}</button></form>
+{% endif %}{% endmacro %}
+{% macro check_text(c) -%}
+  {%- set k = c.check -%}
+  {%- if k.type in ("contains", "not_contains") %}{{ k.type.replace("_", " ") }} {{ k["values"] | map("tojson") | join(", ") }}{% if k.type == "contains" and k.match == "any" %} (any){% endif %}
+  {%- elif k.type in ("regex", "not_regex") %}{{ k.type.replace("_", " ") }} <code>{{ k.pattern }}</code>
+  {%- elif k.type == "numeric" %}number <code>{{ k.pattern }}</code> = {{ k.expected }} ± {{ k.tolerance }}
+  {%- elif k.type == "length" %}{{ k.min if k.min is not none else 0 }}–{{ k.max if k.max is not none else "∞" }} {{ k.unit }}
+  {%- else %}{{ k.type.replace("_", " ") }}{% endif -%}
+{%- endmacro %}
+{% macro rubric_table(criteria) %}
+<table>
+  <tr><th>Criterion</th><th>Scale</th><th class="num">Weight</th><th>Graded by</th></tr>
+  {% for c in criteria %}
+  <tr><td><b>{{ c.name }}</b>{% if c.must_pass %} <span class="tag must">must pass</span>{% endif %}
+      {% if c.dimension %}<span class="tag">{{ c.dimension }}</span>{% endif %}<br><span class="muted">{{ c.description }}</span>
+      {% if c.anchors %}<ol class="anchors">{% for n, a in c.anchors | dictsort %}<li value="{{ n }}">{{ a }}</li>{% endfor %}</ol>{% endif %}</td>
+    <td>{{ c.scale.replace("_", "/") }}</td><td class="num">{{ c.weight }}</td>
+    <td>{% if c.check %}code: {{ check_text(c) }}{% if c.also_judge %}<br>+ LLM judge{% endif %}{% else %}LLM judge{% endif %}</td></tr>
+  {% endfor %}
+</table>
+{% endmacro %}
+{% block content %}
+<h1>{{ project.title }}</h1>
+{% if project.description %}<p class="lead">{{ project.description }}</p>{% endif %}
+
+<nav class="steps">
+  <a href="#card">1 Use-case card</a><a href="#evalset">2 Eval set</a><a href="#rubrics">3 Rubrics</a><a href="#target">4 Target</a>
+  {% if spent %}<span class="muted">AI spend on this project so far: ${{ "%.3f" | format(spent) }}</span>{% endif %}
+</nav>
+
+<section id="card">
+  <h2>Use-case card {{ badge("usecase") }}</h2>
+  <div class="actions">
+    <a class="button" href="/p/{{ project.slug }}/intake">{{ "Run intake again" if card else "Start intake" }}</a>
+    {% if card %}<a class="button" href="/p/{{ project.slug }}/card/edit">Edit</a>{% endif %}
+    {{ approve("usecase") }}
+  </div>
+  {% if card %}
+  <dl class="grid">
+    <dt>Title</dt><dd>{{ card.title }}</dd>
+    <dt>Goal</dt><dd>{{ card.goal }}</dd>
+    <dt>Users</dt><dd>{{ card.users }}</dd>
+    <dt>Inputs</dt><dd>{{ card.input_types | join("; ") }}</dd>
+    <dt>Output</dt><dd>{{ card.output_format }}</dd>
+  </dl>
+  <h3>Quality dimensions</h3>
+  <table>
+    <tr><th>Dimension</th><th>What good looks like here</th><th class="num">Weight</th></tr>
+    {% for d in card.dimensions %}
+    <tr><td>{{ d.key }}{% if d.custom %} <span class="muted">(custom)</span>{% endif %}</td><td>{{ d.description }}</td><td class="num">{{ d.weight }}</td></tr>
+    {% endfor %}
+  </table>
+  <h3>Test categories</h3>
+  <p>{{ card.categories | join(" · ") }}</p>
+  <div class="cols">
+    <div><h3>Must</h3><ul>{% for r in card.must %}<li>{{ r }}</li>{% endfor %}</ul></div>
+    <div><h3>Must not</h3><ul>{% for r in card.must_not %}<li>{{ r }}</li>{% endfor %}</ul></div>
+  </div>
+  <h3>Known failure modes</h3>
+  <ul>{% for f in card.failure_modes %}<li>{{ f }}</li>{% endfor %}</ul>
+  {% if card.out_of_scope %}<h3>Out of scope</h3><ul>{% for f in card.out_of_scope %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+  {% if card.notes %}<h3>Notes and assumptions</h3><p>{{ card.notes }}</p>{% endif %}
+  {% else %}<p class="muted">No use-case card yet. Start with intake.</p>{% endif %}
+</section>
+
+<section id="evalset">
+  <h2>Eval set {{ badge("evalset") }}</h2>
+  <div class="actions">
+    <form method="post" action="/p/{{ project.slug }}/generate" class="inline" data-busy>
+      <label class="inline">Total cases <input type="number" name="n" value="30" min="1" max="200" class="short"></label>
+      <label class="inline"><input type="checkbox" name="replace" value="true"> replace existing</label>
+      <label class="inline"><input type="checkbox" name="dry_run" value="true"> estimate only</label>
+      <button {{ "disabled" if not approved_card }} title="{{ '' if approved_card else 'Approve the use-case card first' }}">Generate</button>
+      <span class="busy muted" hidden>Writing test cases… about 1–3 minutes.</span>
+    </form>
+    <form method="post" action="/p/{{ project.slug }}/import" enctype="multipart/form-data" class="inline">
+      <input type="file" name="file" accept=".md,.csv,.json,.yaml,.yml" required> <button>Import</button>
+    </form>
+    <a class="button" href="/p/{{ project.slug }}/cases/new">Add a case</a>
+    {{ approve("evalset") }}
+  </div>
+  {% if not approved_card %}<p class="muted">Generating needs an approved use-case card{% if versions.usecase %} (v{{ versions.usecase.version }} is still a draft){% endif %}.</p>
+  {% elif card and approved_card.version != versions.usecase.version %}<p class="muted">Generation uses the approved card v{{ approved_card.version }}, not draft v{{ versions.usecase.version }}.</p>{% endif %}
+
+  {% if evalset %}
+  <h3>Coverage matrix</h3>
+  {% set matrix = evalset.coverage() %}
+  <table class="matrix">
+    <tr><th>Category</th>{% for c in coverage_cols %}<th class="num">{{ c.replace("_", " ") }}</th>{% endfor %}<th class="num">total</th></tr>
+    {% set planned = card.categories if card else [] %}
+    {% for cat in planned + (matrix.keys() | reject("in", planned) | list) %}
+    {% set row = matrix.get(cat, {}) %}
+    <tr><td>{{ cat }}{% if cat not in planned %} <span class="muted">(not on card)</span>{% endif %}</td>
+      {% for c in coverage_cols %}{% set n = row.get(c, 0) %}<td class="num {{ 'gap' if not n }}">{{ n or "·" }}</td>{% endfor %}
+      <td class="num"><b>{{ row.get("easy", 0) + row.get("medium", 0) + row.get("hard", 0) }}</b></td></tr>
+    {% endfor %}
+  </table>
+  <p class="muted">Highlighted cells have no test case. Not every cell needs one; empty rows or columns are the gaps to look at.</p>
+  {% if duplicates %}
+  <div class="flash error">Possible near-duplicates: {% for a, b, s in duplicates %}<code>{{ a }}</code> and <code>{{ b }}</code> ({{ (s * 100) | round | int }}% overlap){{ ", " if not loop.last }}{% endfor %}</div>
+  {% endif %}
+
+  <h3>{{ evalset.cases | length }} test cases</h3>
+  {% for tc in evalset.cases %}
+  <details class="case" id="case-{{ tc.id }}">
+    <summary><code>{{ tc.id }}</code> {{ tc.category }} <span class="tag">{{ tc.type.replace("_", " ") }}</span> <span class="tag">{{ tc.difficulty }}</span>
+      {% if tc.source != "manual" %}<span class="tag">{{ tc.source }}</span>{% endif %}
+      {% if rubric_for.get(tc.id) %}<span class="tag rubric">rubric: {{ rubric_for[tc.id].criteria | length }} criteria</span>{% endif %}</summary>
+    <div class="actions">
+      <a class="button small" href="/p/{{ project.slug }}/cases/{{ tc.id }}/edit">Edit</a>
+      <form method="post" action="/p/{{ project.slug }}/cases/{{ tc.id }}/delete" class="inline" onsubmit="return confirm('Delete {{ tc.id }}?')"><button class="small danger">Delete</button></form>
+    </div>
+    {% if tc.is_multi_turn %}
+      {% for t in tc.input %}<div class="turn {{ t.role }}"><b>{{ t.role }}:</b> <pre>{{ t.content }}</pre></div>{% endfor %}
+    {% else %}<pre>{{ tc.input }}</pre>{% endif %}
+    {% if tc.context %}<h4>Context given to the target</h4><dl class="grid">{% for k, v in tc.context.items() %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl>{% endif %}
+    <h4>Expected behaviours</h4>
+    <ul>{% for b in tc.expected_behaviours %}<li>{{ b }}</li>{% endfor %}</ul>
+    {% if tc.reference_answer %}<h4>Reference answer</h4><pre>{{ tc.reference_answer }}</pre>{% endif %}
+    {% set rub = rubric_for.get(tc.id) %}
+    <h4>Rubric <a class="button small" href="/p/{{ project.slug }}/rubrics/{{ tc.id }}/edit">{{ "Edit" if rub else "Write by hand" }}</a></h4>
+    {% if rub %}{{ rubric_table(rub.criteria) }}{% else %}<p class="muted">No rubric yet.</p>{% endif %}
+  </details>
+  {% endfor %}
+  {% else %}<p class="muted">No test cases yet. Generate them from the approved card, import a file, or add one by hand.</p>{% endif %}
+</section>
+
+<section id="rubrics">
+  <h2>Rubrics {{ badge("rubrics") }}</h2>
+  <div class="actions">
+    <form method="post" action="/p/{{ project.slug }}/rubrics/generate" class="inline" data-busy>
+      <label class="inline"><input type="checkbox" name="regenerate" value="true"> rewrite all</label>
+      <label class="inline"><input type="checkbox" name="dry_run" value="true"> estimate only</label>
+      <button {{ "disabled" if not (approved_card and approved_evalset) }}
+              title="{{ '' if approved_card and approved_evalset else 'Approve the card and the eval set first' }}">
+        {{ "Write missing rubrics" if rubricset else "Write rubrics" }}</button>
+      <span class="busy muted" hidden>Writing rubrics… about 1–3 minutes.</span>
+    </form>
+    {{ approve("rubrics") }}
+  </div>
+  {% if rubricset %}
+  {% set graders = [] %}{% for r in rubricset.rubrics %}{% for c in r.criteria %}{% set _ = graders.append(c.grader) %}{% endfor %}{% endfor %}
+  <p>{{ rubricset.rubrics | length }} rubrics, {{ graders | length }} criteria: {{ graders | select("eq", "code") | list | length }} code checks,
+    {{ graders | select("eq", "llm") | list | length }} LLM judge, {{ graders | select("eq", "code+llm") | list | length }} both.
+    {% if rubricset.evalset_version %}Written for eval set v{{ rubricset.evalset_version }}.{% endif %}</p>
+  {% endif %}
+  {% if missing %}<p class="muted">{{ missing | length }} test case(s) have no rubric yet{% if missing | length <= 8 %}: {{ missing | join(", ") }}{% endif %}.</p>{% endif %}
+  {% if rubricset and rubricset.common %}
+  <h3>Common criteria <span class="muted">(copied into every rubric)</span></h3>
+  {{ rubric_table(rubricset.common) }}
+  {% endif %}
+  <p class="muted">Each test case's rubric is shown with the case above.</p>
+</section>
+
+<section id="target">
+  <h2>Target {{ badge("target") }}</h2>
+  {% if target %}
+  <p><b>{{ target.name }}</b> · {{ target.config.adapter }} adapter{% if target.config.adapter == "prompt" %} · {{ target.config.provider }} / {{ target.config.model }}{% endif %}</p>
+  {% if target.config.adapter == "prompt" %}<details><summary>System prompt</summary><pre>{{ target.config.system_prompt }}</pre></details>{% endif %}
+  {% else %}<p class="muted">No target yet.</p>{% endif %}
+</section>
+{% endblock %}

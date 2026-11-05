@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit " ~ original_id if original_id else "New test case" }} · {{ project.title }}{% endblock %}
+{% block content %}
+<h1>{{ "Edit test case" if original_id else "New test case" }}</h1>
+<form method="post" action="/p/{{ project.slug }}/cases/save" class="stack">
+  <input type="hidden" name="original_id" value="{{ original_id }}">
+  <div class="cols4">
+    <label>Id <input name="id" value="{{ f.id }}" required pattern="[a-z0-9][a-z0-9_-]*"></label>
+    <label>Category <input name="category" value="{{ f.category }}" list="cats" required>
+      <datalist id="cats">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist></label>
+    <label>Type <select name="type">{% for t in ["typical", "edge", "adversarial", "out_of_scope"] %}
+      <option value="{{ t }}" {{ "selected" if f.type == t }}>{{ t.replace("_", " ") }}</option>{% endfor %}</select></label>
+    <label>Difficulty <select name="difficulty">{% for d in ["easy", "medium", "hard"] %}
+      <option {{ "selected" if f.difficulty == d }}>{{ d }}</option>{% endfor %}</select></label>
+  </div>
+  <label>Input <span class="muted">(for a conversation, start each turn with USER: or ASSISTANT:, ending with USER:)</span>
+    <textarea name="input" rows="8" required>{{ f.input }}</textarea></label>
+  <label>Context given to the target <span class="muted">(optional; one "key: value" per line)</span>
+    <textarea name="context" rows="3">{{ f.context }}</textarea></label>
+  <label>Expected behaviours <span class="muted">(one per line; what a good response must do)</span>
+    <textarea name="expected_behaviours" rows="5" required>{{ f.expected_behaviours }}</textarea></label>
+  <label>Reference answer <span class="muted">(optional)</span>
+    <textarea name="reference_answer" rows="6">{{ f.reference_answer }}</textarea></label>
+  <div class="row"><button>Save</button> <a href="/p/{{ project.slug }}#evalset">Cancel</a></div>
+</form>
+{% endblock %}
